@@ -1,0 +1,93 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AR Map Trigger</title>
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/1.5.0/aframe/build/aframe-ar.js"></script>
+  <script src='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js'></script>
+  <link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />
+  <style>
+    body { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id='map' style='width: 100%; height: 100%;'></div>
+
+  <a-scene embedded arjs="sourceType: webcam; trackingMethod: best;">
+    <a-marker id="ar-marker" preset="hiro">
+      <a-box color="blue" depth="0.5" height="0.5" width="0.5"></a-box>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    // Initialize Mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoibmZpbm8iLCJhIjoiY2sydHZsY2JsMWZvdjNpcWVsOTFkNm4yYiJ9.20NEBZd7z2vFuPRqFQU2Kw';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [initial_longitude, initial_latitude],
+      zoom: 15
+    });
+
+    // AR target location
+    const targetLocation = {
+      latitude: 37.7749,
+      longitude: -122.4194
+    };
+
+    // Check distance and show AR when within 10 meters
+    function checkDistance(currentLocation) {
+      const distance = getDistanceInMeters(currentLocation, targetLocation);
+      if (distance <= 10) {
+        document.getElementById('map').style.display = 'none';
+        document.querySelector('a-scene').style.display = 'block';
+      } else {
+        document.getElementById('map').style.display = 'block';
+        document.querySelector('a-scene').style.display = 'none';
+      }
+    }
+
+    // Helper function to calculate the distance between two coordinates
+    function getDistanceInMeters(coord1, coord2) {
+      const R = 6371e3; // Earth's radius in meters
+      const lat1 = coord1.latitude * (Math.PI / 180);
+      const lat2 = coord2.latitude * (Math.PI / 180);
+      const deltaLat = (coord2.latitude - coord1.latitude) * (Math.PI / 180);
+      const deltaLng = (coord2.longitude - coord1.longitude) * (Math.PI / 180);
+
+      const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c; // Distance in meters
+    }
+
+    // Add a geolocate control to the map to track
+        // Add a geolocate control to the map to track the user's location
+    const geolocate = new mapboxgl.GeolocateControl({
+      positionOptions: {
+        enableHighAccuracy: true
+      },
+      trackUserLocation: true
+    });
+
+    // Trigger AR camera when the user's location is updated
+    geolocate.on('geolocate', (e) => {
+      const currentLocation = {
+        latitude: e.coords.latitude,
+        longitude: e.coords.longitude
+      };
+      checkDistance(currentLocation);
+    });
+
+    map.addControl(geolocate);
+
+    // Start tracking the user's location
+    geolocate.trigger();
+
+  </script>
+</body>
+</html>
+
