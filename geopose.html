@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Add GeoPose Point</title>
+    <style>
+        html, body, #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+        #attributesForm {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        #submitBtn {
+            margin-top: 10px;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/4.19/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.19/"></script>
+
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/layers/FeatureLayer",
+            "esri/widgets/Search",
+            "esri/widgets/Locate",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/widgets/Expand",
+            "esri/widgets/CoordinateConversion"
+        ], function (Map, MapView, Graphic, Point, FeatureLayer, Search, Locate, SimpleMarkerSymbol, Expand, CoordinateConversion) {
+
+            var map = new Map({
+                basemap: "streets"
+            });
+
+            var view = new MapView({
+                container: "viewDiv",
+                map: map,
+                zoom: 4,
+                center: [-118, 34] // Longitude, latitude
+            });
+
+            var markerSymbol = new SimpleMarkerSymbol({
+                color: [226, 119, 40],
+                outline: {
+                    color: [255, 255, 255],
+                    width: 2
+                }
+            });
+
+            var pointGraphic;
+
+            view.on("click", function (event) {
+                view.graphics.removeAll();
+                var point = new Point({
+                    longitude: event.mapPoint.longitude,
+                    latitude: event.mapPoint.latitude
+                });
+
+                pointGraphic = new Graphic({
+                    geometry: point,
+                    symbol: markerSymbol
+                });
+
+                view.graphics.add(pointGraphic);
+
+                document.getElementById("latitude").value = point.latitude;
+                document.getElementById("longitude").value = point.longitude;
+                document.getElementById("altitude").value = 0;
+            });
+
+            document.getElementById("submitBtn").addEventListener("click", function () {
+                var geoPoseData = {
+                    latitude: parseFloat(document.getElementById("latitude").value),
+                    longitude: parseFloat(document.getElementById("longitude").value),
+                    altitude: parseFloat(document.getElementById("altitude").value),
+                    speed: parseFloat(document.getElementById("speed").value),
+                    heading: parseFloat(document.getElementById("heading").value),
+                    quaternion_x: parseFloat(document.getElementById("quaternion_x").value),
+                    quaternion_y: parseFloat(document.getElementById("quaternion_y").value),
+                    quaternion_z: parseFloat(document.getElementById("quaternion_z").value),
+                    quaternion_w: parseFloat(document.getElementById("quaternion_w").value),
+                    position_accuracy: parseFloat(document.getElementById("position_accuracy").value),
+                    orientation_accuracy: parseFloat(document.getElementById("orientation_accuracy").value),
+                    privacy_data_retention: document.getElementById("privacy_data_retention").value,
+                    privacy_data_acceptable_use: document.getElementById("privacy_data_acceptable_use").value,
+                    privacy_data_sanitization_applied: document.getElementById("privacy_data_sanitization_applied").value,
+                    privacy_data_sanitization_requested: document.getElementById("privacy_data_sanitization_requested").value
+                };
+
+                addGeoPoseFeature(geoPoseData);
+            });
+
+            function addGeoPoseFeature(geoPoseData) {
+                var addUrl = 'https://services6.arcgis.com/EYmt49RDgyNITpyb/arcgis/rest/services/GeoPose/FeatureServer/0/addFeatures';
+
+                var feature = {
+                    attributes: {
+                        esrigpss_latitude: geoPoseData.latitude,
+                        esrigpss_longitude: geoPoseData.longitude,
+                        esrigpss_altitude: geoPoseData.altitude,
+                        esrigpss_speed: geoPoseData.speed,
+                        esrigpss_direction: geoPoseData.heading,
+                        quaternion_x: geoPoseData.quaternion_x,
+                        quaternion_y: geoPoseData.quaternion_y,
+                        quaternion_z: geoPoseData.quaternion_z,
+                        quaternion_w: geoPoseData.quaternion_w,
+                        position_accuracy: geoPoseData.position_accuracy,
+                        orientation_accuracy: geoPoseData.orientation_accuracy,
+                        privacy_data_retention: geoPoseData.privacy_data_retention,
+                        privacy_data_acceptable_use: geoPoseData.privacy_data_acceptable_use,
+                        privacy_data_sanitization_applied: geoPoseData.privacy_data_sanitization_applied,
+                        privacy_data_sanitization_requested: geoPoseData.privacy_data_sanitization_requested,
+                        timestamp: Date.now()
+                    },
+                    geometry: {
+                        x: geoPoseData.longitude,
+                        y: geoPoseData.latitude,
+                        spatialReference: { wkid: 4326 }
+                    }
+                };
+
+                var payload = {
+                    features: [feature],
+                    f: 'json'
+                };
+
+                fetch(addUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({ features: JSON.stringify(payload.features), f: 'json' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Add Feature Response:', data);
+                })
+                .catch(error => console.error('Error adding feature:', error));
+            }
+
+            // Add search and locate widgets to the view
+            var searchWidget = new Search({
+                view: view
+            });
+
+            view.ui.add(searchWidget, {
+                position: "top-left",
+                index: 0
+            });
+
+            var locateBtn = new Locate({
+                view: view
+            });
+
+            view.ui.add(locateBtn, {
+                position: "top-left",
+                index: 1
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div id="viewDiv"></div>
+
+    <div id="attributesForm">
+        <h3>GeoPose Attributes</h3>
+        <label>Latitude: <input type="text" id="latitude" readonly></label><br>
+        <label>Longitude: <input type="text" id="longitude" readonly></label><br>
+        <label>Altitude: <input type="number" id="altitude"></label><br>
+        <label>Speed: <input type="number" id="speed"></label><br>
+        <label>Heading: <input type="number" id="heading"></label><br>
+        <label>Quaternion X: <input type="number" id="quaternion_x"></label><br>
+        <label>Quaternion Y: <input type="number" id="quaternion_y"></label><br>
+        <label>Quaternion Z: <input type="number" id="quaternion_z"></label><br>
+        <label>Quaternion W: <input type="number" id="quaternion_w"></label><br>
+        <label>Position Accuracy: <input type="number" id="position_accuracy"></label><br>
+        <label>Orientation Accuracy: <input type="number" id="orientation_accuracy"></label><br>
+        <label>Privacy Data Retention: <input type="text" id="privacy_data_retention"></label><br>
+        <label>Privacy Data Acceptable Use: <input type="text" id="privacy_data_acceptable_use"></label><br>
+        <label>Privacy Data Sanitization Applied: <input type="text" id="privacy_data_sanitization_applied"></label><br>
+        <label>Privacy Data Sanitization Requested: <input type="text" id="privacy_data_sanitization_requested"></label><br>
+        <button id="submitBtn">Submit</button>
+    </div>
+</body>
+</html>
